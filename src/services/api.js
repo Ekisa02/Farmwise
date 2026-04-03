@@ -1,18 +1,21 @@
-/**
- * api.js
- * All communication with the Express backend.
- * Base URL comes from .env → VITE_API_BASE_URL
- */
-
 const BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001'
 
+function getToken() {
+  return localStorage.getItem('fw_token')
+}
+
 async function request(method, path, body, isFormData = false) {
-  const headers = isFormData ? {} : { 'Content-Type': 'application/json' }
+  const token = getToken()
+  const headers = {}
+  if (!isFormData) headers['Content-Type'] = 'application/json'
+  if (token)       headers['Authorization'] = `Bearer ${token}`
+
   const res = await fetch(`${BASE}${path}`, {
     method,
     headers,
     body: isFormData ? body : body ? JSON.stringify(body) : undefined,
   })
+
   if (!res.ok) {
     const err = await res.json().catch(() => ({ message: res.statusText }))
     throw new Error(err.message || 'Request failed')
@@ -20,30 +23,30 @@ async function request(method, path, body, isFormData = false) {
   return res.json()
 }
 
+// ── Auth ─────────────────────────────────────────────────────
+export const authApi = {
+  register: (data)  => request('POST', '/api/auth/register', data),
+  login:    (data)  => request('POST', '/api/auth/login',    data),
+  me:       ()      => request('GET',  '/api/auth/me'),
+}
+
 // ── Animals ──────────────────────────────────────────────────
 export const animalsApi = {
-  getAll:  ()           => request('GET',  '/api/animals'),
-  create:  (data)       => request('POST', '/api/animals', data),
-  update:  (id, data)   => request('PUT',  `/api/animals/${id}`, data),
-  remove:  (id)         => request('DELETE',`/api/animals/${id}`),
+  getAll:  ()           => request('GET',    '/api/animals'),
+  create:  (data)       => request('POST',   '/api/animals',      data),
+  update:  (id, data)   => request('PUT',    `/api/animals/${id}`, data),
+  remove:  (id)         => request('DELETE', `/api/animals/${id}`),
 }
 
 // ── Milk Records ─────────────────────────────────────────────
 export const milkApi = {
-  getAll:  (animalId)   => request('GET',  `/api/milk/${animalId}`),
-  save:    (data)       => request('POST', '/api/milk', data),           // { animalId, date, am, pm }
-  getLast7:(animalId)   => request('GET',  `/api/milk/${animalId}/last7`),
+  getAll:   (animalId) => request('GET',  `/api/milk/${animalId}`),
+  getLast7: (animalId) => request('GET',  `/api/milk/${animalId}/last7`),
+  save:     (data)     => request('POST', '/api/milk', data),
 }
 
-// ── AI Health Scan ────────────────────────────────────────────
+// ── Health Scan ───────────────────────────────────────────────
 export const healthApi = {
-  /**
-   * Upload an image + metadata → returns AI vet report
-   * @param {File}   file
-   * @param {string} animalId
-   * @param {string} scanType   e.g. "eye" | "udder" | ...
-   * @param {string} location   e.g. "Westlands, Nairobi County, KE"
-   */
   scan: (file, animalId, scanType, location) => {
     const fd = new FormData()
     fd.append('image',    file)
@@ -52,19 +55,11 @@ export const healthApi = {
     fd.append('location', location)
     return request('POST', '/api/health/scan', fd, true)
   },
-
-  /** Save a completed scan result */
-  saveResult: (data) => request('POST', '/api/health/result', data),
-
-  /** Get scan history for one animal */
   getHistory: (animalId) => request('GET', `/api/health/history/${animalId}`),
-
-  /** Get all recent scans across herd */
-  getRecent: () => request('GET', '/api/health/recent'),
+  getRecent:  ()         => request('GET', '/api/health/recent'),
 }
 
-// ── AI Feeding Advice ─────────────────────────────────────────
+// ── Feed Advice ───────────────────────────────────────────────
 export const feedApi = {
-  getAdvice: (concern, foods) =>
-    request('POST', '/api/feed/advice', { concern, foods }),
+  getAdvice: (concern, foods) => request('POST', '/api/feed/advice', { concern, foods }),
 }

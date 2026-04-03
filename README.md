@@ -141,4 +141,3 @@ npm run build
 # Serve with any static host (Vercel, Netlify, etc.)
 # Point VITE_API_BASE_URL to your deployed backend URL
 ```
-# Farmwise

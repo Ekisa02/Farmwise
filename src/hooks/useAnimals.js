@@ -2,31 +2,32 @@ import { useState, useEffect } from 'react'
 import { animalsApi } from '../services/api'
 import { cacheAnimals, getCachedAnimals } from '../services/db'
 
-export function useAnimals() {
-  const [animals, setAnimals]   = useState([])
-  const [loading, setLoading]   = useState(true)
-  const [error,   setError]     = useState(null)
+// `enabled` = false until user is logged in (avoids 401 on mount)
+export function useAnimals(enabled = true) {
+  const [animals, setAnimals] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error,   setError]   = useState(null)
 
   const load = async () => {
+    if (!enabled) return
     setLoading(true)
     try {
       const data = await animalsApi.getAll()
       setAnimals(data)
-      await cacheAnimals(data)          // keep offline cache fresh
+      await cacheAnimals(data)
     } catch (err) {
-      // Offline or server error → fall back to IndexedDB cache
       const cached = await getCachedAnimals()
-      if (cached.length) {
-        setAnimals(cached)
-      } else {
-        setError(err.message)
-      }
+      if (cached.length) setAnimals(cached)
+      else setError(err.message)
     } finally {
       setLoading(false)
     }
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    if (enabled) load()
+    else setLoading(false)
+  }, [enabled])
 
   const addAnimal = async (data) => {
     const created = await animalsApi.create(data)
